@@ -2,10 +2,15 @@ import numpy as np
 
 # This program aims to solve Khun Phan, a riddle where different pieces move around a field.
 # Two different representations of the field are used here (for now).
-# One is a 4-by-5 list of lists (5 lists with each having 4 entries) with bool values for whether the field is occupied.
-# The other is an enumeration of all fields from 1 to 20, starting with fields 1-4 in the first row.
+    # One is a 4-by-5 list of lists (5 lists with each having 4 entries) with bool values for whether the field is occupied.
+    # The other is an enumeration of all fields from 1 to 20, starting with fields 1-4 in the first row.
+    # The pieces are listed in four lists, one for each type, values from 1 to 20 in each list tell the position of the pieces' upper left corners
+    # List gets updated on each move, and then sorted to be comparable to past positions
+    # Formula to transform matrix index to enumerated position: posin20(i,j) = (i-1) * 4 + j
 # TODO: It might be possible to represent everything just with the numbers from the second version, 
 # so one long-term goal is to switch the whole computation to that.
+
+
 
 # A piece on the Khun Phan board has a type and i/j-coordinates (row/column)
 class Piece : 
@@ -64,10 +69,14 @@ class Piece :
     def getType(self) :
         return self.t
 
+# The Khun Phan playing field (maybe rename to 'board'?)
 class Field :
     height = 5
     width = 4
 
+    # Initialising the field with a matrix of bool values (True = empty, False = occupied) and a list of the pieces on the field.
+    # In order to avoid having to deal with index-out-of-bounds problems, the field is surrounded
+    # by a padding of 'False' values, implying that no piece can be put there.
     def __init__(self) :
         self.field = [[False, False, False, False, False, False],
                       [False, True, True, True, True, False],
@@ -88,7 +97,6 @@ class Field :
         return self.field[i][j]
 
     def updatePieceList(self, t, n) :
-
         # How to change the number in the piecelist according to move direction and piece type
         pieceListDict = { 1:-4, 2:1, 3:4, 4:-1 }
 
@@ -102,17 +110,13 @@ class Field :
     def setPieceList(self, list) :
         self.pieceList = list
 
-    # Represent the field with values from 1 to (width * height) (20 in this case)
-    # Have a list of four lists, one for each type, with the values where the upper left corners of such pieces are
-    # Needs to be updated on each move, and then sorted to be comparable to past positions
-    # Formula: posin20(i,j) = (i-1) * 4 + j
 
-
-# --------------------------------------------------------------
+# ------------------------------------------------------------------------------------------
+# Now that we have pieces and a field, this is the controller section working with both.
 
 # Starting position for the original Khun Phan challenge. 
-# In the first list, the positions of pieces of the first type are saved and so on.    
 start = [[14,15,18,19], [1,4,13,16], [10], [2]]
+# Keep track of all positions that have been reached so far.
 positions = []
 
 # Node class to create a search tree. 
@@ -122,10 +126,14 @@ class Node :
         self.position = position
         self.children = []
 
+    def addChild(self, child) :
+        self.children.append(child)
+
+
 def controller() :
     f,p = setup(start)
     positions.append(start)
-
+    
     #TODO: Create search tree
     for piece in p :
         moves = piece.getMoves(f)
@@ -155,18 +163,73 @@ def addPiece(f, p) :
             f.setCell(i,j,False)
 
 def move(f,  p, dir) :
-    if dir == 1 :
-        if p.getType() == 1 :
-            p.move(dir)
-            f.setCell(p.getI(), p.getJ(), True)
-            f.setCell(p.getI()-1, p.getJ(), False)
-        # elif
-    elif dir == 2 :
-        pass
-    elif dir == 3 :
-        pass
-    else :
-        pass
+    p.move(dir)
+    match dir, p.getType() :
+        case 1,1 :
+            f.setCell(p.getI()+1, p.getJ(), True)
+            f.setCell(p.getI(), p.getJ(), False)
+        case 1,2 :
+            f.setCell(p.getI()+2, p.getJ(), True)
+            f.setCell(p.getI(), p.getJ(), False)
+        case 1,3 :
+            f.setCell(p.getI()+1, p.getJ(), True)
+            f.setCell(p.getI()+1, p.getJ()+1, True)
+            f.setCell(p.getI(), p.getJ(), False)
+            f.setCell(p.getI(), p.getJ()+1, False)
+        case 1,4 :
+            f.setCell(p.getI()+2, p.getJ(), True)
+            f.setCell(p.getI()+2, p.getJ()+1, True)
+            f.setCell(p.getI(), p.getJ(), False)
+            f.setCell(p.getI(), p.getJ()+1, False)
+        case 2,1 :
+            f.setCell(p.getI(), p.getJ()-1, True)
+            f.setCell(p.getI(), p.getJ(), False)
+        case 2,2 :
+            f.setCell(p.getI(), p.getJ()-1, True)
+            f.setCell(p.getI()+1, p.getJ()-1, True)
+            f.setCell(p.getI(), p.getJ(), False)
+            f.setCell(p.getI()+1, p.getJ(), False)
+        case 2,3 :
+            f.setCell(p.getI(), p.getJ()-1, True)
+            f.setCell(p.getI(), p.getJ()+1, False)
+        case 2,4 :
+            f.setCell(p.getI(), p.getJ()-1, True)
+            f.setCell(p.getI()+1, p.getJ()-1, True)
+            f.setCell(p.getI(), p.getJ()+1, False)
+            f.setCell(p.getI()+1, p.getJ()+1, False)
+        case 3,1 :
+            f.setCell(p.getI()-1, p.getJ(), True)
+            f.setCell(p.getI(), p.getJ(), False)
+        case 3,2 :
+            f.setCell(p.getI()-1, p.getJ(), True)
+            f.setCell(p.getI()+1, p.getJ(), False)
+        case 3,3 :
+            f.setCell(p.getI()-1, p.getJ(), True)
+            f.setCell(p.getI()-1, p.getJ()+1, True)
+            f.setCell(p.getI(), p.getJ(), False)
+            f.setCell(p.getI(), p.getJ()+1, False)
+        case 3,4 :
+            f.setCell(p.getI()-1, p.getJ(), True)
+            f.setCell(p.getI()-1, p.getJ()+1, True)
+            f.setCell(p.getI()+1, p.getJ(), False)
+            f.setCell(p.getI()+1, p.getJ()+1, False)
+        case 4,1 :
+            f.setCell(p.getI(), p.getJ()+1, True)
+            f.setCell(p.getI(), p.getJ(), False)
+        case 4,2 :
+            f.setCell(p.getI(), p.getJ()+1, True)
+            f.setCell(p.getI()+1, p.getJ()+1, True)
+            f.setCell(p.getI(), p.getJ(), False)
+            f.setCell(p.getI()+1, p.getJ(), False)
+        case 4,3 :
+            f.setCell(p.getI(), p.getJ()+2, True)
+            f.setCell(p.getI(), p.getJ(), False)
+        case 4,4 :
+            f.setCell(p.getI(), p.getJ()+2, True)
+            f.setCell(p.getI()+1, p.getJ()+2, True)
+            f.setCell(p.getI(), p.getJ(), False)
+            f.setCell(p.getI()+1, p.getJ(), False)
+
     f.updatePieceList(p.getType(), (p.getI() - 1) * 4 + p.getJ())
     return f.pieceList
 
@@ -179,3 +242,32 @@ def move(f,  p, dir) :
 # p2.move(f1, 1)
 # print(f1)
 # print(f1.pieceList)
+# print("hello, world")
+
+
+# class Test :
+#     def __init__(self, val) :
+#         self.val = val
+
+#     def getVal(self) :
+#         return self.val
+
+# class Test2:
+#     def __init__(self, oval) :
+#         self.oval = oval
+
+#     def getVal(self) :
+#         return self.oval
+
+# a = Test(1)
+# b = Test(3)
+# c = Test2(4)
+# d = Test2(5)
+
+
+# match a.getVal(), c.getVal() :
+#     case 1,4 :
+#         print("it worked")
+
+def testMove(f,p,dir) :
+    p.move(dir)
