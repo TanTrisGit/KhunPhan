@@ -1,4 +1,5 @@
 import numpy as np
+import unittest as ut
 
 # This program aims to solve Khun Phan, a riddle where different pieces move around a field.
 # Two different representations of the field are used here (for now).
@@ -9,8 +10,6 @@ import numpy as np
     # Formula to transform matrix index to enumerated position: posin20(i,j) = (i-1) * 4 + j
 # TODO: It might be possible to represent everything just with the numbers from the second version, 
 # so one long-term goal is to switch the whole computation to that.
-
-
 
 # A piece on the Khun Phan board has a type and i/j-coordinates (row/column)
 class Piece : 
@@ -38,21 +37,24 @@ class Piece :
                     (self.i + 1, self.j), (self.i + 1, self.j + 1)]
         
     # Return list of bool values whether it is possible for a piece to move upwards, to the right, down or to the left
-    # TODO: swap f.field with f.getCell (good practice to use getter methods)
     def getMoves(self, f) :
         if self.t == 1 : 
-            return [f.field[self.i - 1][self.j], f.field[self.i][self.j + 1], f.field[self.i + 1][self.j], f.field[self.i][self.j - 1]]
+            return [f.getCell(self.i - 1, self.j), f.getCell(self.i, self.j + 1), f.getCell(self.i + 1, self.j), f.getCell(self.i, self.j - 1)]
         elif self.t == 2 :
-            return [f.field[self.i - 1][self.j], f.field[self.i][self.j + 1] and f.field[self.i + 1][self.j + 1], 
-                    f.field[self.i + 2][self.j], f.field[self.i][self.j - 1] and f.field[self.i + 1][self.j - 1]]
+            return [f.getCell(self.i - 1, self.j), f.getCell(self.i, self.j + 1) and f.getCell(self.i + 1, self.j + 1), 
+                    f.getCell(self.i + 2, self.j), f.getCell(self.i, self.j - 1) and f.getCell(self.i + 1, self.j - 1)]
         elif self.t == 3 :
-            return [f.field[self.i - 1][self.j] and f.field[self.i - 1][self.j + 1], f.field[self.i][self.j + 1], 
-                    f.field[self.i + 1][self.j] and f.field[self.i + 1][self.j + 1], f.field[self.i][self.j - 1]]
+            return [f.getCell(self.i - 1, self.j) and f.getCell(self.i - 1, self.j + 1), f.getCell(self.i, self.j + 1), 
+                    f.getCell(self.i + 1, self.j) and f.getCell(self.i + 1, self.j + 1), f.getCell(self.i, self.j - 1)]
         else :
-            return [f.field[self.i - 1][self.j] and f.field[self.i - 1][self.j + 1], 
-                    f.field[self.i][self.j + 2] and f.field[self.i + 1][self.j + 2],                     
-                    f.field[self.i + 2][self.j] and f.field[self.i + 2][self.j + 1], 
-                    f.field[self.i][self.j - 1] and f.field[self.i + 1][self.j - 1]]
+            return [f.getCell(self.i - 1, self.j) and f.getCell(self.i - 1, self.j + 1), 
+                    f.getCell(self.i, self.j + 2) and f.getCell(self.i + 1, self.j + 2),                     
+                    f.getCell(self.i + 2, self.j) and f.getCell(self.i + 2, self.j + 1), 
+                    f.getCell(self.i, self.j - 1) and f.getCell(self.i + 1, self.j - 1)]
+
+
+    def getType(self) :
+        return self.t
 
     # Move this piece on a given field in a direction: up(1), right(2), down(3), left(4)
     # TODO: change if-cases to match/case statement (everywhere in this program actually)
@@ -66,8 +68,6 @@ class Piece :
         elif dir == 4 :
             self.j -= 1
 
-    def getType(self) :
-        return self.t
 
 # The Khun Phan playing field (maybe rename to 'board'?)
 class Field :
@@ -85,30 +85,29 @@ class Field :
                       [False, True, True, True, True, False],
                       [False, True, True, True, True, False],
                       [False, False, False, False, False, False]]
-        self.pieceList = [[], [], [], []]
 
-    def __repr__(self) -> str:
+    def __repr__(self) -> str :
         return str(np.array(self.field))
     
+    def setPieceList(self, list) :
+        self.pieceList = list
+    
+    def getPieceList(self) :
+        return self.pieceList
+
     def setCell(self, i, j, val) :
         self.field[i][j] = val
 
     def getCell(self, i, j) :
         return self.field[i][j]
 
-    def updatePieceList(self, t, n) :
-        # How to change the number in the piecelist according to move direction and piece type
+    def updatePieceList(self, t, n, d) :
+        # How to change the number in the piecelist according to move direction
         pieceListDict = { 1:-4, 2:1, 3:4, 4:-1 }
 
-        self.pieceList[t-1].remove(n)
-        self.pieceList[t-1].append(n+pieceListDict(t))
+        self.pieceList[t-1].remove(n - pieceListDict[d])
+        self.pieceList[t-1].append(n)
         self.pieceList[t-1].sort()
-
-    def getPieceList(self) :
-        return self.pieceList
-
-    def setPieceList(self, list) :
-        self.pieceList = list
 
 
 # ------------------------------------------------------------------------------------------
@@ -122,24 +121,44 @@ positions = []
 # Node class to create a search tree. 
 # Each node consists of a position and a list of following position, its children.
 class Node :
-    def __init__(self, position) :
+    def __init__(self, position, field, pieces) :
         self.position = position
+        self.field = field
+        self.pieces = pieces
         self.children = []
 
     def addChild(self, child) :
         self.children.append(child)
 
+    def getPos(self) :
+        return self.position
+
+    def getChildren(self) :
+        return self.children
+
 
 def controller() :
-    f,p = setup(start)
-    positions.append(start)
+    f,ps = setup(start)
+    createTree(f,ps,start)
     
-    #TODO: Create search tree
-    for piece in p :
+def createTree(f, ps, pos) :  
+    print(f.getPieceList())
+    positions.append(pos)
+    if len(positions) > 1024 : 
+        raise AssertionError("Reached more than 1024 different positions!")
+    node = Node(pos, f, ps)
+    for piece in ps :
         moves = piece.getMoves(f)
-        for k, move in enumerate(moves) :
-            if move : 
-                move(f, piece, k+1)
+        for k, m in enumerate(moves) :
+            if m : 
+                newPos = move(f, piece, k+1)
+                if newPos in positions :
+                    print("Position already found.")
+                elif newPos[3] == [14] : 
+                    print("Solved!\n", newPos)
+                else :
+                    print("Creating new node.")
+                    node.addChild(createTree(setup(newPos), newPos))
 
 # Set up a field with pieces
 def setup(pos) :
@@ -157,12 +176,11 @@ def addPiece(f, p) :
     occupied = p.occupies()
     for i,j in occupied : 
         if not f.getCell(i,j) :
-            #TODO: Find correct exception name
-            raise ValueError("Tried to add piece in occupied space")
-        for i,j in occupied:
-            f.setCell(i,j,False)
+            raise AssertionError("Tried to add piece in occupied space")
+    for i,j in occupied:
+        f.setCell(i,j,False)
 
-def move(f,  p, dir) :
+def move(f, p, dir) :
     p.move(dir)
     match dir, p.getType() :
         case 1,1 :
@@ -230,8 +248,23 @@ def move(f,  p, dir) :
             f.setCell(p.getI(), p.getJ(), False)
             f.setCell(p.getI()+1, p.getJ(), False)
 
-    f.updatePieceList(p.getType(), (p.getI() - 1) * 4 + p.getJ())
+    print(p.getType(), (p.getI() - 1) * 4 + p.getJ())
+    f.updatePieceList(p.getType(), (p.getI() - 1) * 4 + p.getJ(), dir)
     return f.pieceList
+
+
+# ------------------------------------------------------------------------------------
+
+controller()
+# setup(start)
+
+# field = Field()
+# print(field)
+# piece1 = Piece(1,4,2)
+# piece2 = Piece(2,1,1)
+# addPiece(field, piece1)
+# addPiece(field, piece2)
+
 
 # f1 = Field()
 # p1 = Piece(1, 1, 1)
@@ -268,6 +301,3 @@ def move(f,  p, dir) :
 # match a.getVal(), c.getVal() :
 #     case 1,4 :
 #         print("it worked")
-
-def testMove(f,p,dir) :
-    p.move(dir)
