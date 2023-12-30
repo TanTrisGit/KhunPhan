@@ -80,7 +80,7 @@ def newPos(state, n, type, dir) :
     newPos = copy.deepcopy(state.getPosition())
     newPos[type].remove(n)
     newPos[type].append(n + directionDict[dir])
-    newPos.sort()
+    newPos[type] = sorted(newPos[type])
     return newPos
 
 
