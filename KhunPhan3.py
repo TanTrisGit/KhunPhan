@@ -12,6 +12,7 @@ import numpy as np
 # Also, because of the padding, the indices for row and column start at 1.
 
 # The progression of the game is represented by games states. Each state is one position of pieces.
+# The state also saves the list of positions that led to the current one (how did we get here? = howDid)
 # Piece positions are saved using a different representation of the board, an enumeration from 1 to 20.
 # The upper left corner of the board is the 1, the first row are the numbers 1 to 4, and so on.
 # Each position is a list of four lists, one for each piece type.
@@ -41,7 +42,7 @@ emptyBoard = [[False, False, False, False, False, False],
 startPosition = [[14,15,18,19], [1,4,13,16], [10], [2]]
 
 def setupBoard(position) :
-    board = emptyBoard
+    board = copy.deepcopy(emptyBoard)
     for type, list in enumerate(position) :
         for n in list : 
             for i,j in occupies(type, n) :
@@ -73,7 +74,7 @@ def lookAround(state, type, n) :
             return [b[i-1][j] and b[i-1][j+1], b[i][j+2] and b[i+1][j+2],
                     b[i+2][j] and b[i+2][j+1], b[i][j-1] and b[i+1][j-1]]
 
-# Given a piece's position, its type and the direction it shall move in, calculate the emergint position
+# Given a piece's position, its type and the direction it shall move in, calculate the emerging position
 def newPos(state, n, type, dir) :
     # What is the relative distance to an enumerated position in a certain direction?
     directionDict = {0:-4, 1:1, 2:4, 3:-1}
@@ -86,8 +87,9 @@ def newPos(state, n, type, dir) :
 
 class State :
 
-    def __init__(self, position) :
+    def __init__(self, position, howDid) :
         self.position = position
+        self.howDid = howDid
         self.board = setupBoard(position)
 
     def __repr__(self) :
@@ -96,8 +98,14 @@ class State :
     def getPosition(self) :
         return self.position
     
+    def getHowDid(self) :
+        return self.howDid
+    
     def getBoard(self) :
         return self.board
+    
+    def addToHowDid(self, position) :
+        self.howDid.append(position)
 
     # List of all positions reachable in one move
     def successorPositions(self) :
@@ -108,5 +116,39 @@ class State :
                     if b : successors.append(newPos(self, n, type, dir))
         return successors
 
-state = State(startPosition)
-print(state.successorPositions())
+
+# Now we have everything we need for the search tree. 
+# Its root node is State(startPosition).
+# The children of a node are the successors of its state.
+# Every time a node is created, its position is added to the list of explored positions.
+# Also, it must be tested for whether it is a solution to the riddle.
+# If so, the list of positions that led to this state is returned as a solution to the riddle and the algorithm stops.
+# If that is not the case, its children are created as new nodes if their position has not yet been reached.
+
+# Positions that have been visited
+reached = []
+
+def run() :
+    node(State(startPosition, []))
+
+def node(state) :
+    curPos = state.getPosition()
+    if curPos[3] != [2] :
+        print(curPos)
+    # Save in all positions reached
+    reached.append(curPos)
+    # Save in all positions that led to this state
+    state.addToHowDid(curPos)
+    # Check winning condition
+    if curPos[3] == [14] : 
+        print("Found a solution!")
+        print(state.getHowDid())
+        return
+    for s in state.successorPositions() :
+        if s not in reached :
+            node(State(s, state.getHowDid()))
+
+run()
+            
+# n = State([[14, 15, 18, 19], [1, 4, 13, 16], [11], [2]], [])
+# print(n.successorPositions())
