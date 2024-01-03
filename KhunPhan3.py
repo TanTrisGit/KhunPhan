@@ -1,15 +1,16 @@
 import copy
 import numpy as np
+from PIL import Image, ImageDraw
 
 # This program attempts to solve the Khun Phan riddle.
 
 # There are 10 pieces on a Khun Phan board, 4 1-by-1, 4 1-by-2, 1 2-by-1 and one 2-by-2 piece.
 # These piece types are enumerated 0 to 3.
 
-# The board is represented by a 4-by-5 matrix of bool values with a padding of 1.
+# The board is represented by a 4-by-5 matrix of bool values with a margin of 1.
 # An square is empty if the value in the matrix is 'True', and occupied if the value is 'False'.
-# The padding avoids index-out-of-bounds problems by simulating squares that are "always occupied" as a border.
-# Also, because of the padding, the indices for row and column start at 1.
+# The margin avoids index-out-of-bounds problems by simulating squares that are "always occupied" as a border.
+# Also, because of the margin, the indices for row and column start at 1.
 
 # The progression of the game is represented by games states. Each state is one position of pieces.
 # The state also saves the list of positions that led to the current one (how did we get here? = howDid)
@@ -125,16 +126,28 @@ class State :
 # If so, the list of positions that led to this state is returned as a solution to the riddle and the algorithm stops.
 # If that is not the case, its children are created as new nodes if their position has not yet been reached.
 
+# List of solutions
+solutions = []
+
 # Positions that have been visited
 reached = []
 
 def run() :
     # Save solutions in text document
     solutions = open("Solutions.txt", "w")
-    solutions.write("These are my solutions for Khun Phan.\n")
     solutions.close()
     node(State(startPosition, []))
     
+# The following methods are trying to make the search more efficient.
+# However, they are pretty bad.
+# New idea: Calculate the "minimum move distance" between two positions.
+# If a position could have been reached quicker, cut current branch of the search tree.
+    
+# How many moves is the quickest way from one position to the other?
+    
+# Check whether there are unnecessary steps leading to the current position
+
+
 # Calculate the distance between two pieces
 def dist(n1,n2) :
     i1,j1 = getIJ(n1)
@@ -168,19 +181,12 @@ def shouldVisit(pos, howDid) :
     # Make sure the big piece actually moves further away from its original position over time
     elif len(howDid) > 400 :
         return False
+    
+    # Any path that is longer than the shortest solution is cut
+    elif len(solutions) > 0 and len(howDid) > len(min(solutions, key=len)) :
+        return False
     else :
         return True
-
-def printToFile(l) :
-    solutions = open("Solutions.txt", "a")
-    solutions.write("[")
-    for part in l :
-        solutions.write(str(part))
-        solutions.write(",")
-        solutions.write("\n")
-    solutions.write("]\n")
-    solutions.close()
-
 
 def node(state) :
     curPos = state.getPosition()
@@ -195,7 +201,7 @@ def node(state) :
     # Check winning condition
     if curPos[3][0] == 14 : 
         print("Found a solution!")
-        printToFile(state.getHowDid())
+        solutions.append(state.getHowDid())
         return
     for s in state.successorPositions() :
         if s not in reached and shouldVisit(s, state.getHowDid()):
@@ -203,11 +209,51 @@ def node(state) :
 
 run()
 
- 
+# --------------------------------------------------------------------------------------
+# Visualisation of solutions:
 
-# All of this seems to be working fine.
-# However, the maximum recursion depth is exceeded. 
-# Maybe this can be fixed with a better solution for setting up the board than deepcopying the empty board.
-# However, I will try to make the system intelligent by not visiting nodes that are probably bad.
-# That is what the shouldVisit() method is for.
+size = 10
+padding = 2
+margin = 30
+boardlength = size*5 + margin
+boardwidth = size*4 + margin
+boardsPerRow = 30
+piececolor = (191,153,114)
+boardcolor = (164,116,73)
+imagecolor = (144,96,53)
 
+for index, solution in enumerate(solutions) :
+
+    im = Image.new('RGB', (boardsPerRow * boardwidth + 20, ((len(solution) + 3*boardsPerRow)//(boardsPerRow-1))*boardwidth), (50,50,50))
+    draw = ImageDraw.Draw(im)
+
+    for i, step in enumerate(solution) :
+        draw.rectangle(((i%boardsPerRow)*boardwidth + size/2, (i//boardsPerRow)*boardlength + size/2, ((i%boardsPerRow)+1)*boardwidth, ((i+1)//boardsPerRow + 1)*boardlength), fill=boardcolor)
+        for type, pos in enumerate(step) :
+            for n in pos :
+                y,x = getIJ(n)
+                upLeftX = (i%boardsPerRow) * boardwidth + x*size
+                upLeftY = (i//boardsPerRow)*boardlength + y*size
+                match type :
+                    case 0 :
+                        lowRightX = upLeftX + size
+                        lowRightY = upLeftY + size
+                        color = (255,255,255)
+                    case 1 :
+                        lowRightX = upLeftX + size
+                        lowRightY = upLeftY + 2*size
+                        color = (255,0,0)
+                    case 2 :
+                        lowRightX = upLeftX + 2*size
+                        lowRightY = upLeftY + size
+                        color = (255,0,0)
+                    case 3 :
+                        lowRightX = upLeftX + 2*size
+                        lowRightY = upLeftY + 2*size   
+                        color = (0,255,150)
+
+                draw.rectangle((upLeftX, upLeftY, lowRightX, lowRightY), fill=color, outline=(0, 0, 0))
+                # draw.ellipse((upLeftX + padding, upLeftY + padding, lowRightX - padding, lowRightY - padding), fill=color, outline=(0, 0, 0))
+
+    path = "images/solution" + str(index) + ".jpg"
+    im.save(path, quality=95)
