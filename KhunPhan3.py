@@ -8,7 +8,7 @@ from PIL import Image, ImageDraw
 # These piece types are enumerated 0 to 3.
 
 # The board is represented by a 4-by-5 matrix of bool values with a margin of 1.
-# An square is empty if the value in the matrix is 'True', and occupied if the value is 'False'.
+# A square is empty if the value in the matrix is 'True', and occupied if the value is 'False'.
 # The margin avoids index-out-of-bounds problems by simulating squares that are "always occupied" as a border.
 # Also, because of the margin, the indices for row and column start at 1.
 
@@ -133,9 +133,6 @@ solutions = []
 reached = []
 
 def run() :
-    # Save solutions in text document
-    solutions = open("Solutions.txt", "w")
-    solutions.close()
     node(State(startPosition, []))
     
 # The following methods are trying to make the search more efficient.
@@ -190,11 +187,6 @@ def shouldVisit(pos, howDid) :
 
 def node(state) :
     curPos = state.getPosition()
-    #TESTING. TODO: Remove
-    #Testing whether the big square has moved two steps down the board
-    # if curPos[3][0] > 12 :
-    #     print(curPos)
-    # Save in all positions reached
     reached.append(curPos)
     # Add to positions that led to this state
     state.addToHowDid(curPos)
@@ -227,13 +219,20 @@ for index, solution in enumerate(solutions) :
     im = Image.new('RGB', (boardsPerRow * boardwidth + 20, ((len(solution) + 3*boardsPerRow)//(boardsPerRow-1))*boardwidth), (50,50,50))
     draw = ImageDraw.Draw(im)
 
+for index, solution in enumerate(solutions) :
+
+    im = Image.new('RGB', (boardsPerRow * boardwidth + 20, ((len(solution) + 3*boardsPerRow)//(boardsPerRow-1))*boardwidth), (50,50,50))
+    draw = ImageDraw.Draw(im)
+
     for i, step in enumerate(solution) :
-        draw.rectangle(((i%boardsPerRow)*boardwidth + size/2, (i//boardsPerRow)*boardlength + size/2, ((i%boardsPerRow)+1)*boardwidth, ((i+1)//boardsPerRow + 1)*boardlength), fill=boardcolor)
+        fieldULX = (i%boardsPerRow)*boardwidth + size/2
+        fieldULY = (i//boardsPerRow)*boardlength + size/2
+        draw.rectangle((fieldULX, fieldULY, fieldULX + 5*size, fieldULY + 6*size), fill=boardcolor)
         for type, pos in enumerate(step) :
             for n in pos :
                 y,x = getIJ(n)
                 upLeftX = (i%boardsPerRow) * boardwidth + x*size
-                upLeftY = (i//boardsPerRow)*boardlength + y*size
+                upLeftY = (i//boardsPerRow)* boardlength + y*size
                 match type :
                     case 0 :
                         lowRightX = upLeftX + size
@@ -257,3 +256,11 @@ for index, solution in enumerate(solutions) :
 
     path = "images/solution" + str(index) + ".jpg"
     im.save(path, quality=95)
+
+# So far, so good. The program does indeed find a solution and the visualisation allows me to 
+# test it. It actually works!.
+# The next step. however, must be to make the search more efficient.
+# One idea is to implement a breadth-first-search and end the search as soon as a solution has been found.
+# That would ensure the shortest possible solution is found. 
+# However, it might be computationally too involved.
+# TODO: Implement and test BFS.
