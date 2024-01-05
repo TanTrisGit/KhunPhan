@@ -1,5 +1,6 @@
 import copy
 import numpy as np
+import random
 from PIL import Image, ImageDraw
 
 # This program attempts to solve the Khun Phan riddle.
@@ -116,6 +117,15 @@ class State :
                 for dir, b in enumerate(lookAround(self, type, n)) :
                     if b : successors.append(newPos(self, n, type, dir))
         return successors
+    
+    # Have we solved the riddle?
+    def solved(self) :
+        if self.position[3][0] == 14 : 
+            print("Found a solution!")
+            return True
+        else :
+            return False
+
 
 
 # Now we have everything we need for the search tree. 
@@ -132,8 +142,12 @@ solutions = []
 # Positions that have been visited
 reached = []
 
+# List of nodes that will be visited by search next
+queue = []
+
 def run() :
-    node(State(startPosition, []))
+    queue.append(State(startPosition, []))
+    handleQueue()
     
 # The following methods are trying to make the search more efficient.
 # However, they are pretty bad.
@@ -151,7 +165,20 @@ def dist(n1,n2) :
     i2,j2 = getIJ(n2)
     return (abs(i1-i2) + abs(j1-j2))
 
+# Mirror a position along the y axis
+def mirrorPos(pos) :
+    newPos = []
+    for type, list in enumerate(pos) :
+        newPieces = []
+        for e in list :
+            match type :
+                case 0 | 1 : newPieces.append(((e-1)//4+1)*8 - 3 - e)
+                case 2 | 3 : newPieces.append(((e-1)//4+1)*8 - 3 - e - 1)
+        newPos.append(sorted(newPieces))
+    return newPos
+
 def shouldVisit(pos, howDid) :
+    l = len(howDid)
     s0 = pos[0][0]
     s1 = pos[0][1]
     s2 = pos[0][2]
@@ -170,34 +197,46 @@ def shouldVisit(pos, howDid) :
     # That is the case if their (sorted) values have a difference of 3 from last to first
     if s3 - s0 == 3 :
         return False
-    
-    # Also, at least two of the four single squares should always be next to each other
-    # elif dist(s0,s1) > 1 and dist(s0,s2) > 1 and dist(s0,s3) > 1 and dist (s1,s2) > 1 and dist(s1,s3) > 1 and dist(s2,s3) > 1 :
-    #     return False
       
-    # Make sure the big piece actually moves further away from its original position over time
-    elif len(howDid) > 400 :
+    elif l > 220 :
         return False
     
-    # Any path that is longer than the shortest solution is cut
-    elif len(solutions) > 0 and len(howDid) > len(min(solutions, key=len)) :
+    elif l > len(min(solutions, key=len)) :
         return False
+    
+    # Check if the same position, just mirrored along the y-axis, has been reached already
+    # elif # mirrorPos(pos) != pos and 
+    elif mirrorPos(pos) in reached :
+        return False
+    
     else :
         return True
 
+
 def node(state) :
+    print(len(state.getHowDid()))
     curPos = state.getPosition()
+    queue.remove(state)
     reached.append(curPos)
     # Add to positions that led to this state
     state.addToHowDid(curPos)
     # Check winning condition
-    if curPos[3][0] == 14 : 
-        print("Found a solution!")
+    if state.solved() :
         solutions.append(state.getHowDid())
-        return
+        drawSolution(state.getHowDid(), len(state.getHowDid()))
     for s in state.successorPositions() :
         if s not in reached and shouldVisit(s, state.getHowDid()):
-            node(State(s, state.getHowDid()))
+            l = len(state.getHowDid())  
+            if l > 20 and l < 40 or l > 45 and l < 60 or l > 65 :
+                # insert child at random index in queue
+                index = random.randint(1, len(queue)-1)
+                queue.insert(index, State(s, state.getHowDid()))
+            else :
+                queue.append(State(s, state.getHowDid()))
+
+def handleQueue() :
+    while len(queue) > 0 :
+        node(queue[0])
 
 run()
 
@@ -214,48 +253,48 @@ piececolor = (191,153,114)
 boardcolor = (164,116,73)
 imagecolor = (144,96,53)
 
-for index, solution in enumerate(solutions) :
+def drawSolution(solution, index) : 
 
     im = Image.new('RGB', (boardsPerRow * boardwidth + 20, ((len(solution) + 3*boardsPerRow)//(boardsPerRow-1))*boardwidth), (50,50,50))
     draw = ImageDraw.Draw(im)
 
-for index, solution in enumerate(solutions) :
+    for index, solution in enumerate(solutions) :
 
-    im = Image.new('RGB', (boardsPerRow * boardwidth + 20, ((len(solution) + 3*boardsPerRow)//(boardsPerRow-1))*boardwidth), (50,50,50))
-    draw = ImageDraw.Draw(im)
+        im = Image.new('RGB', (boardsPerRow * boardwidth + 20, ((len(solution) + 3*boardsPerRow)//(boardsPerRow-1))*boardwidth), (50,50,50))
+        draw = ImageDraw.Draw(im)
 
-    for i, step in enumerate(solution) :
-        fieldULX = (i%boardsPerRow)*boardwidth + size/2
-        fieldULY = (i//boardsPerRow)*boardlength + size/2
-        draw.rectangle((fieldULX, fieldULY, fieldULX + 5*size, fieldULY + 6*size), fill=boardcolor)
-        for type, pos in enumerate(step) :
-            for n in pos :
-                y,x = getIJ(n)
-                upLeftX = (i%boardsPerRow) * boardwidth + x*size
-                upLeftY = (i//boardsPerRow)* boardlength + y*size
-                match type :
-                    case 0 :
-                        lowRightX = upLeftX + size
-                        lowRightY = upLeftY + size
-                        color = (255,255,255)
-                    case 1 :
-                        lowRightX = upLeftX + size
-                        lowRightY = upLeftY + 2*size
-                        color = (255,0,0)
-                    case 2 :
-                        lowRightX = upLeftX + 2*size
-                        lowRightY = upLeftY + size
-                        color = (255,0,0)
-                    case 3 :
-                        lowRightX = upLeftX + 2*size
-                        lowRightY = upLeftY + 2*size   
-                        color = (0,255,150)
+        for i, step in enumerate(solution) :
+            fieldULX = (i%boardsPerRow)*boardwidth + size/2
+            fieldULY = (i//boardsPerRow)*boardlength + size/2
+            draw.rectangle((fieldULX, fieldULY, fieldULX + 5*size, fieldULY + 6*size), fill=boardcolor)
+            for type, pos in enumerate(step) :
+                for n in pos :
+                    y,x = getIJ(n)
+                    upLeftX = (i%boardsPerRow) * boardwidth + x*size
+                    upLeftY = (i//boardsPerRow)* boardlength + y*size
+                    match type :
+                        case 0 :
+                            lowRightX = upLeftX + size
+                            lowRightY = upLeftY + size
+                            color = (255,255,255)
+                        case 1 :
+                            lowRightX = upLeftX + size
+                            lowRightY = upLeftY + 2*size
+                            color = (255,0,0)
+                        case 2 :
+                            lowRightX = upLeftX + 2*size
+                            lowRightY = upLeftY + size
+                            color = (255,0,0)
+                        case 3 :
+                            lowRightX = upLeftX + 2*size
+                            lowRightY = upLeftY + 2*size   
+                            color = (0,255,150)
 
-                draw.rectangle((upLeftX, upLeftY, lowRightX, lowRightY), fill=color, outline=(0, 0, 0))
-                # draw.ellipse((upLeftX + padding, upLeftY + padding, lowRightX - padding, lowRightY - padding), fill=color, outline=(0, 0, 0))
+                    draw.rectangle((upLeftX, upLeftY, lowRightX, lowRightY), fill=color, outline=(0, 0, 0))
+                    # draw.ellipse((upLeftX + padding, upLeftY + padding, lowRightX - padding, lowRightY - padding), fill=color, outline=(0, 0, 0))
 
-    path = "images/solution" + str(index) + ".jpg"
-    im.save(path, quality=95)
+        path = "images/solution" + str(index) + ".jpg"
+        im.save(path, quality=95)
 
 # So far, so good. The program does indeed find a solution and the visualisation allows me to 
 # test it. It actually works!.
@@ -264,3 +303,7 @@ for index, solution in enumerate(solutions) :
 # That would ensure the shortest possible solution is found. 
 # However, it might be computationally too involved.
 # TODO: Implement and test BFS.
+    
+# BFS is implemented, however, it will run almost indefinitely, because the search tree gets huge from a
+# depth of about 25.
+# So, the new goal is to get rid of unnecessary paths.
