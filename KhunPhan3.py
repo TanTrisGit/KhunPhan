@@ -1,6 +1,7 @@
 import copy
 import numpy as np
 import random
+from collections import deque
 from PIL import Image, ImageDraw
 
 # This program attempts to solve the Khun Phan riddle.
@@ -143,10 +144,10 @@ solutions = []
 reached = []
 
 # List of nodes that will be visited by search next
-queue = []
+queue = deque([])
 
 def run() :
-    queue.append(State(startPosition, []))
+    queue.appendleft(State(startPosition, []))
     handleQueue()
     
 # The following methods are trying to make the search more efficient.
@@ -198,103 +199,105 @@ def shouldVisit(pos, howDid) :
     if s3 - s0 == 3 :
         return False
       
-    elif l > 220 :
+    elif l > 130 :
         return False
     
-    elif l > len(min(solutions, key=len)) :
+    elif solutions != [] and l > len(min(solutions, key=len)) :
         return False
     
     # Check if the same position, just mirrored along the y-axis, has been reached already
     # elif # mirrorPos(pos) != pos and 
-    elif mirrorPos(pos) in reached :
-        return False
+    
+    # Random
+    # elif random.randint(1,15) == 4 :
+    #     return False
     
     else :
         return True
 
 
-def node(state) :
-    print(len(state.getHowDid()))
-    curPos = state.getPosition()
-    queue.remove(state)
-    reached.append(curPos)
-    # Add to positions that led to this state
-    state.addToHowDid(curPos)
-    # Check winning condition
-    if state.solved() :
-        solutions.append(state.getHowDid())
-        drawSolution(state.getHowDid(), len(state.getHowDid()))
-    for s in state.successorPositions() :
-        if s not in reached and shouldVisit(s, state.getHowDid()):
-            l = len(state.getHowDid())  
-            if l > 20 and l < 40 or l > 45 and l < 60 or l > 65 :
-                # insert child at random index in queue
-                index = random.randint(1, len(queue)-1)
-                queue.insert(index, State(s, state.getHowDid()))
-            else :
-                queue.append(State(s, state.getHowDid()))
-
-def handleQueue() :
-    while len(queue) > 0 :
-        node(queue[0])
-
-run()
 
 # --------------------------------------------------------------------------------------
 # Visualisation of solutions:
 
 size = 10
-padding = 2
+padding = size/2
 margin = 30
 boardlength = size*5 + margin
 boardwidth = size*4 + margin
-boardsPerRow = 30
+boardsPerRow = 15
 piececolor = (191,153,114)
-boardcolor = (164,116,73)
+boardcolor = (101,56,24)
 imagecolor = (144,96,53)
 
 def drawSolution(solution, index) : 
 
-    im = Image.new('RGB', (boardsPerRow * boardwidth + 20, ((len(solution) + 3*boardsPerRow)//(boardsPerRow-1))*boardwidth), (50,50,50))
+    im = Image.new('RGB', ((boardsPerRow * boardwidth + 2*size), ((len(solution)+boardsPerRow-1)//boardsPerRow)*boardlength), (50,50,50))
     draw = ImageDraw.Draw(im)
 
-    for index, solution in enumerate(solutions) :
+    for i, step in enumerate(solution) :
+        fieldULX = (i%boardsPerRow)*boardwidth + padding
+        fieldULY = (i//boardsPerRow)*boardlength + padding
+        draw.rectangle((fieldULX, fieldULY, fieldULX + 5*size, fieldULY + 6*size), fill=boardcolor)
+        
+        for type, typePos in enumerate(step) :
+            for n in typePos :
+                y,x = getIJ(n)
+                upLeftX = fieldULX + (x-0.5)*size
+                upLeftY = fieldULY + (y-0.5)*size
+                match type :
+                    case 0 :
+                        lowRightX = upLeftX + size
+                        lowRightY = upLeftY + size
+                        color = (255,255,255)
+                    case 1 :
+                        lowRightX = upLeftX + size
+                        lowRightY = upLeftY + 2*size
+                        color = (255,0,0)
+                    case 2 :
+                        lowRightX = upLeftX + 2*size
+                        lowRightY = upLeftY + size
+                        color = (255,0,0)
+                    case 3 :
+                        lowRightX = upLeftX + 2*size
+                        lowRightY = upLeftY + 2*size   
+                        color = (255,184,28)
 
-        im = Image.new('RGB', (boardsPerRow * boardwidth + 20, ((len(solution) + 3*boardsPerRow)//(boardsPerRow-1))*boardwidth), (50,50,50))
-        draw = ImageDraw.Draw(im)
+                draw.rectangle((upLeftX, upLeftY, lowRightX, lowRightY), fill=color, outline=(0, 0, 0))
+                # draw.ellipse((upLeftX + padding, upLeftY + padding, lowRightX - padding, lowRightY - padding), fill=color, outline=(0, 0, 0))
 
-        for i, step in enumerate(solution) :
-            fieldULX = (i%boardsPerRow)*boardwidth + size/2
-            fieldULY = (i//boardsPerRow)*boardlength + size/2
-            draw.rectangle((fieldULX, fieldULY, fieldULX + 5*size, fieldULY + 6*size), fill=boardcolor)
-            for type, pos in enumerate(step) :
-                for n in pos :
-                    y,x = getIJ(n)
-                    upLeftX = (i%boardsPerRow) * boardwidth + x*size
-                    upLeftY = (i//boardsPerRow)* boardlength + y*size
-                    match type :
-                        case 0 :
-                            lowRightX = upLeftX + size
-                            lowRightY = upLeftY + size
-                            color = (255,255,255)
-                        case 1 :
-                            lowRightX = upLeftX + size
-                            lowRightY = upLeftY + 2*size
-                            color = (255,0,0)
-                        case 2 :
-                            lowRightX = upLeftX + 2*size
-                            lowRightY = upLeftY + size
-                            color = (255,0,0)
-                        case 3 :
-                            lowRightX = upLeftX + 2*size
-                            lowRightY = upLeftY + 2*size   
-                            color = (0,255,150)
-
-                    draw.rectangle((upLeftX, upLeftY, lowRightX, lowRightY), fill=color, outline=(0, 0, 0))
-                    # draw.ellipse((upLeftX + padding, upLeftY + padding, lowRightX - padding, lowRightY - padding), fill=color, outline=(0, 0, 0))
-
-        path = "images/solution" + str(index) + ".jpg"
+        path = "images/solution" + str(index) + "_" + str(len(solution)) + ".jpg"
         im.save(path, quality=95)
+
+# -------------------------------------------------------------------------------------------------
+
+def node(state) :
+    queue.remove(state)
+    curPos = state.getPosition()
+    # Due to BFS, the same branch might be computed several times if they are on the same level
+    if curPos in reached or mirrorPos(curPos) in reached:
+        return
+    else :
+        # To visualize progress
+        print(len(state.getHowDid()))
+        reached.append(curPos)
+        # Add to positions that led to this state
+        state.addToHowDid(curPos)
+        # Check winning condition
+        if state.solved() :
+            solutions.append(state.getHowDid())
+            drawSolution(state.getHowDid(), len(solutions))
+        for s in state.successorPositions() :
+            if shouldVisit(s, state.getHowDid()):
+                l = len(state.getHowDid())
+                queue.append(State(s, state.getHowDid()))
+                
+def handleQueue() :
+    while len(queue) > 0 :
+        node(queue[0])
+    print(str(len(solutions)))
+
+run()
 
 # So far, so good. The program does indeed find a solution and the visualisation allows me to 
 # test it. It actually works!.
@@ -307,3 +310,13 @@ def drawSolution(solution, index) :
 # BFS is implemented, however, it will run almost indefinitely, because the search tree gets huge from a
 # depth of about 25.
 # So, the new goal is to get rid of unnecessary paths.
+
+# TODO: Change calculation: Get rid of Boolean matrix and only look around empty squares
+# Make list 1-20, then go through all pieces and remove occupied numbers to get list of two empty squares
+# For each empty square, look one and two steps above/left/... for pieces that can move there
+# Then, for two empty squares at once, look for these possibilities as well
+
+# KIRILL was here
+# New idea: Use integer (or short) as representation of a position (with hashsets)
+# Next new idea: Start from BOTH ENDS
+# Multithreading might actually be possible in Python
