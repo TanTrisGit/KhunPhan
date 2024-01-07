@@ -1,13 +1,13 @@
 import copy
 import numpy as np
-import random
-from collections import deque
-from PIL import Image, ImageDraw
+from KhunPhan3Visual import drawSolution
 
 # This program attempts to solve the Khun Phan riddle.
 
 # There are 10 pieces on a Khun Phan board, 4 1-by-1, 4 1-by-2, 1 2-by-1 and one 2-by-2 piece.
 # These piece types are enumerated 0 to 3.
+# These values from 0 to 3 are not to be confused with directions.
+# The direction a piece can move in is also represented by these values (0: up, 1: right, 2: down, 3: left)
 
 # The board is represented by a 4-by-5 matrix of bool values with a margin of 1.
 # A square is empty if the value in the matrix is 'True', and occupied if the value is 'False'.
@@ -34,6 +34,7 @@ def getIJ(n) :
 def getN(i,j) :
     return ((i-1)*4 + j)
 
+# The empty board: All squares except the border are empty (=True)
 emptyBoard = [[False, False, False, False, False, False],
               [False, True, True, True, True, False],
               [False, True, True, True, True, False],
@@ -42,8 +43,16 @@ emptyBoard = [[False, False, False, False, False, False],
               [False, True, True, True, True, False],
               [False, False, False, False, False, False]]
 
-startPosition = [[14,15,18,19], [1,4,13,16], [10], [2]]
+# The starting and winning positions for the main Khun Phan riddle
+startPositionA = [[14,15,18,19], [1,4,13,16], [10], [2]]
+winningPositionA = [[13,16,17,20],[1,2,3,4],[10],[14]]
 
+# A different version of the riddle, which this program does not solve yet
+startPositionB = [[4,8,11,12],[1,2,3],[13,17],[15]]
+winningPositionB = [[1,5,9,10],[2,3,4],[15,19],[13]]
+
+# Given a position (always in the enumerated representation), return a board
+# where all occupied squares are set to False
 def setupBoard(position) :
     board = copy.deepcopy(emptyBoard)
     for type, list in enumerate(position) :
@@ -60,7 +69,6 @@ def occupies(type, n) :
         case 1 : return [(i,j), (i+1,j)]
         case 2 : return [(i,j), (i,j+1)]
         case 3 : return [(i,j), (i, j+1), (i+1, j), (i+1, j+1)]
-
 
 # List of 4 bool values (up, right, down, left) indicating empty squares around a given piece
 def lookAround(state, type, n) :
@@ -79,7 +87,7 @@ def lookAround(state, type, n) :
 
 # Given a piece's position, its type and the direction it shall move in, calculate the emerging position
 def newPos(state, n, type, dir) :
-    # What is the relative distance to an enumerated position in a certain direction?
+    # Dictionary with the relative distance to an enumerated position in a certain direction (0 to 3)?
     directionDict = {0:-4, 1:1, 2:4, 3:-1}
     newPos = copy.deepcopy(state.getPosition())
     newPos[type].remove(n)
@@ -87,7 +95,11 @@ def newPos(state, n, type, dir) :
     newPos[type] = sorted(newPos[type])
     return newPos
 
-
+# An instance of this class "State" is a state of the game.
+# A game state has three class variables: 
+# The position the game is in, the list of positions that led to this position (howDid) and the current board (bool values)
+# Apart from getters and setters, it provides a method to get all possible next positions from itself,
+# as well as a method that checks whether the current state is a winning position.
 class State :
 
     def __init__(self, position, howDid) :
@@ -121,50 +133,32 @@ class State :
     
     # Have we solved the riddle?
     def solved(self) :
-        if self.position[3][0] == 14 : 
+        if self.position == winningPositionA : 
             print("Found a solution!")
             return True
         else :
             return False
 
 
-
 # Now we have everything we need for the search tree. 
-# Its root node is State(startPosition).
-# The children of a node are the successors of its state.
-# Every time a node is created, its position is added to the list of explored positions.
-# Also, it must be tested for whether it is a solution to the riddle.
-# If so, the list of positions that led to this state is returned as a solution to the riddle and the algorithm stops.
-# If that is not the case, its children are created as new nodes if their position has not yet been reached.
+# Its root node is State(startPositionA, []), the state with the starting position and an empty howDid list.
+# The children of a node are the next possible positions.
+# Every time a node is created, it is checked for whether it already appears in the list of explored positions ("reached"). 
+# If not, its position is added to the list of explored positions.
+# Also, the method to test for whether it is a solution to the riddle ("solved") is called.
+# If so, the list of positions that led to this state is added to the list of solutions ("solutions").
+# If that is not the case, its children are checked by the shouldVisit method.
+# If their path (length of howDid list) is not longer than the shortest solution and shorter than 201,
+# they will be added at the end of the queue of nodes to visit (breadth first search).
 
-# List of solutions
+# Set of solutions
 solutions = []
 
 # Positions that have been visited
 reached = []
 
-# List of nodes that will be visited by search next
-queue = deque([])
-
-def run() :
-    queue.appendleft(State(startPosition, []))
-    handleQueue()
-    
-# The following methods are trying to make the search more efficient.
-# However, they are pretty bad.
-# New idea: Calculate the "minimum move distance" between two positions.
-# If a position could have been reached quicker, cut current branch of the search tree.
-    
-# How many moves is the quickest way from one position to the other?
-    
-# Check whether there are unnecessary steps leading to the current position
-
-
-# Calculate the distance between two pieces
-def dist(n1,n2) :
-    i1,j1 = getIJ(n1)
-    i2,j2 = getIJ(n2)
-    return (abs(i1-i2) + abs(j1-j2))
+# List of nodes that will be visited next
+queue = []
 
 # Mirror a position along the y axis
 def mirrorPos(pos) :
@@ -178,145 +172,69 @@ def mirrorPos(pos) :
         newPos.append(sorted(newPieces))
     return newPos
 
+# Mirror all positions in a state (current and howDid)
+def mirrorState(state) :
+    oldHowDid = copy.deepcopy(state.getHowDid())
+    newHowDid = []
+    newPos = mirrorPos(copy.deepcopy(state.getPosition()))
+    for pos in oldHowDid :
+        newHowDid.append(mirrorPos(pos))
+    return State(newPos, newHowDid)
+
+# Check whether a new position should be visited
 def shouldVisit(pos, howDid) :
     l = len(howDid)
-    s0 = pos[0][0]
-    s1 = pos[0][1]
-    s2 = pos[0][2]
-    s3 = pos[0][3]
-
-    v0 = pos[1][0]
-    v1 = pos[1][1]
-    v2 = pos[1][2]
-    v3 = pos[1][3]
-
-    h = pos[2][0]
-
-    b = pos[3][0]
-
-    # If the four single squares are in one row, no real movement is possible
-    # That is the case if their (sorted) values have a difference of 3 from last to first
-    if s3 - s0 == 3 :
+    if l > 200 or solutions != [] and l > len(min(solutions, key=len)) :
         return False
-      
-    elif l > 130 :
-        return False
-    
-    elif solutions != [] and l > len(min(solutions, key=len)) :
-        return False
-    
-    # Check if the same position, just mirrored along the y-axis, has been reached already
-    # elif # mirrorPos(pos) != pos and 
-    
-    # Random
-    # elif random.randint(1,15) == 4 :
-    #     return False
-    
     else :
         return True
 
-
-
-# --------------------------------------------------------------------------------------
-# Visualisation of solutions:
-
-size = 10
-padding = size/2
-margin = 30
-boardlength = size*5 + margin
-boardwidth = size*4 + margin
-boardsPerRow = 15
-piececolor = (191,153,114)
-boardcolor = (101,56,24)
-imagecolor = (144,96,53)
-
-def drawSolution(solution, index) : 
-
-    im = Image.new('RGB', ((boardsPerRow * boardwidth + 2*size), ((len(solution)+boardsPerRow-1)//boardsPerRow)*boardlength), (50,50,50))
-    draw = ImageDraw.Draw(im)
-
-    for i, step in enumerate(solution) :
-        fieldULX = (i%boardsPerRow)*boardwidth + padding
-        fieldULY = (i//boardsPerRow)*boardlength + padding
-        draw.rectangle((fieldULX, fieldULY, fieldULX + 5*size, fieldULY + 6*size), fill=boardcolor)
-        
-        for type, typePos in enumerate(step) :
-            for n in typePos :
-                y,x = getIJ(n)
-                upLeftX = fieldULX + (x-0.5)*size
-                upLeftY = fieldULY + (y-0.5)*size
-                match type :
-                    case 0 :
-                        lowRightX = upLeftX + size
-                        lowRightY = upLeftY + size
-                        color = (255,255,255)
-                    case 1 :
-                        lowRightX = upLeftX + size
-                        lowRightY = upLeftY + 2*size
-                        color = (255,0,0)
-                    case 2 :
-                        lowRightX = upLeftX + 2*size
-                        lowRightY = upLeftY + size
-                        color = (255,0,0)
-                    case 3 :
-                        lowRightX = upLeftX + 2*size
-                        lowRightY = upLeftY + 2*size   
-                        color = (255,184,28)
-
-                draw.rectangle((upLeftX, upLeftY, lowRightX, lowRightY), fill=color, outline=(0, 0, 0))
-                # draw.ellipse((upLeftX + padding, upLeftY + padding, lowRightX - padding, lowRightY - padding), fill=color, outline=(0, 0, 0))
-
-        path = "images/solution" + str(index) + "_" + str(len(solution)) + ".jpg"
-        im.save(path, quality=95)
-
-# -------------------------------------------------------------------------------------------------
-
+# Create a node in the search tree
 def node(state) :
+    # Remove state from the queue
     queue.remove(state)
     curPos = state.getPosition()
-    # Due to BFS, the same branch might be computed several times if they are on the same level
+    # Check whether the position (or a position symmetric to this one) has been reached already
+    # If so, return and hence do not investigate this path any further
     if curPos in reached or mirrorPos(curPos) in reached:
         return
-    else :
-        # To visualize progress
-        print(len(state.getHowDid()))
-        reached.append(curPos)
-        # Add to positions that led to this state
-        state.addToHowDid(curPos)
-        # Check winning condition
-        if state.solved() :
-            solutions.append(state.getHowDid())
-            drawSolution(state.getHowDid(), len(solutions))
-        for s in state.successorPositions() :
-            if shouldVisit(s, state.getHowDid()):
-                l = len(state.getHowDid())
-                queue.append(State(s, state.getHowDid()))
-                
-def handleQueue() :
+    # To visualize progress print the current depth of the search tree
+    print(len(state.getHowDid()))
+    reached.append(curPos)
+    # Add to positions that led to this state
+    state.addToHowDid(curPos)
+    # Check winning condition
+    if state.solved() :
+        solutions.append(state.getHowDid())
+        # If a solution was found, draw it and save in folder 'images'
+        drawSolution(state.getHowDid(), len(solutions))
+    # Create child nodes
+    for s in state.successorPositions() :
+        if shouldVisit(s, state.getHowDid()):
+            queue.append(State(s, state.getHowDid()))
+
+
+# Add starting position to the queue and handle the queue
+# Print how many solutions you found to standard out
+def run() :
+    queue.append(State(startPositionA, []))
     while len(queue) > 0 :
         node(queue[0])
-    print(str(len(solutions)))
+    print(str(len(solutions)))            
 
 run()
 
-# So far, so good. The program does indeed find a solution and the visualisation allows me to 
-# test it. It actually works!.
-# The next step. however, must be to make the search more efficient.
-# One idea is to implement a breadth-first-search and end the search as soon as a solution has been found.
-# That would ensure the shortest possible solution is found. 
-# However, it might be computationally too involved.
-# TODO: Implement and test BFS.
-    
-# BFS is implemented, however, it will run almost indefinitely, because the search tree gets huge from a
-# depth of about 25.
-# So, the new goal is to get rid of unnecessary paths.
 
-# TODO: Change calculation: Get rid of Boolean matrix and only look around empty squares
+# ----------------------------------------------------------------------------------------------
+
+# The future:
+
+# Idea: Change calculation: Get rid of Boolean matrix and only look around empty squares
 # Make list 1-20, then go through all pieces and remove occupied numbers to get list of two empty squares
 # For each empty square, look one and two steps above/left/... for pieces that can move there
 # Then, for two empty squares at once, look for these possibilities as well
 
 # KIRILL was here
 # New idea: Use integer (or short) as representation of a position (with hashsets)
-# Next new idea: Start from BOTH ENDS
-# Multithreading might actually be possible in Python
+# Next new idea: Start from BOTH ENDS and try and find matching positions in the middle
+# Also, multithreading might actually be possible in Python
