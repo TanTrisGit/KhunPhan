@@ -43,13 +43,35 @@ emptyBoard = [[False, False, False, False, False, False],
               [False, True, True, True, True, False],
               [False, False, False, False, False, False]]
 
-# The starting and winning positions for the main Khun Phan riddle
+# Starting and winning positions
 startPositionA = [[14,15,18,19], [1,4,13,16], [10], [2]]
 winningPositionA = [[13,16,17,20],[1,2,3,4],[10],[14]]
+shortestSolutionA = 113
 
-# A different version of the riddle, which this program does not solve yet
 startPositionB = [[4,8,11,12],[1,2,3],[13,17],[15]]
 winningPositionB = [[1,5,9,10],[2,3,4],[15,19],[13]]
+
+startPositionC = [[1,4,5,8],[13,14,15,16],[10],[2]]
+winningPositionC = [[4,8,13,17],[1,14,15,16],[10],[2]]
+
+startPositionD = []
+winningPositionD = []
+
+startPositionE = []
+winningPositionE = []
+
+startPositionF = []
+winningPositionF = []
+
+startPositionG = []
+winningPositionG = []
+
+startPositionH = []
+winningPositionH = []
+
+startPositionI = []
+winningPositionI = []
+
 
 # Given a position (always in the enumerated representation), return a board
 # where all occupied squares are set to False
@@ -130,14 +152,6 @@ class State :
                 for dir, b in enumerate(lookAround(self, type, n)) :
                     if b : successors.append(newPos(self, n, type, dir))
         return successors
-    
-    # Have we solved the riddle?
-    def solved(self) :
-        if self.position == winningPositionA : 
-            print("Found a solution!")
-            return True
-        else :
-            return False
 
 
 # Now we have everything we need for the search tree. 
@@ -159,6 +173,40 @@ reached = []
 
 # List of nodes that will be visited next
 queue = []
+
+# Which version are we playing?
+curVariant = 0
+
+# Get positions of the currently played variant (variant 0 to 8, which False (start) or True (win))
+def curVariantPos(variant, which) :
+    match variant :
+        case 0 :
+            if which : return winningPositionA
+            else : return startPositionA
+        case 1 :
+            if which : return winningPositionB
+            else : return startPositionB        
+        case 2 :
+            if which : return winningPositionC
+            else : return startPositionC
+        case 3 :
+            if which : return winningPositionD
+            else : return startPositionD
+        case 4 :
+            if which : return winningPositionE
+            else : return startPositionE
+        case 5 :
+            if which : return winningPositionF
+            else : return startPositionF
+        case 6 :
+            if which : return winningPositionG
+            else : return startPositionG
+        case 7 :
+            if which : return winningPositionH
+            else : return startPositionH
+        case 8 :
+            if which : return winningPositionI
+            else : return startPositionI
 
 # Mirror a position along the y axis
 def mirrorPos(pos) :
@@ -189,22 +237,34 @@ def shouldVisit(pos, howDid) :
     else :
         return True
 
+# Have we solved the riddle?
+def solved(position) :
+    winPos = curVariantPos(curVariant, True)
+    if position == winPos : 
+        print("\nFound a solution!")
+        return True
+    else :
+        return False
+
 # Create a node in the search tree
 def node(state) :
+    # Visualize progress
+    global shortestSolutionA
+    if len(queue) > 1 and ((len(state.getHowDid()))%7) == 0 and ((len(state.getHowDid())) < (len(queue[1].getHowDid()))) :
+        print(str(int(round(((len(state.getHowDid()))/shortestSolutionA)*100, 0))) + "% ", end='', flush=True)
     # Remove state from the queue
     queue.remove(state)
     curPos = state.getPosition()
     # Check whether the position (or a position symmetric to this one) has been reached already
     # If so, return and hence do not investigate this path any further
-    if curPos in reached or mirrorPos(curPos) in reached:
+    if curPos in reached : #or mirrorPos(curPos) in reached:
         return
-    # To visualize progress print the current depth of the search tree
-    print(len(state.getHowDid()))
+    # Add current position to reached positions
     reached.append(curPos)
     # Add to positions that led to this state
     state.addToHowDid(curPos)
     # Check winning condition
-    if state.solved() :
+    if solved(curPos) :
         solutions.append(state.getHowDid())
         # If a solution was found, draw it and save in folder 'images'
         drawSolution(state.getHowDid(), len(solutions))
@@ -216,13 +276,16 @@ def node(state) :
 
 # Add starting position to the queue and handle the queue
 # Print how many solutions you found to standard out
-def run() :
-    queue.append(State(startPositionA, []))
+def run(variant) :
+    print("Calculating... ", end='')
+    global curVariant
+    curVariant = variant
+    startPos = curVariantPos(variant, False)
+    queue.append(State(startPos, []))
     while len(queue) > 0 :
         node(queue[0])
-    print(str(len(solutions)))            
 
-run()
+run(0)
 
 
 # ----------------------------------------------------------------------------------------------
