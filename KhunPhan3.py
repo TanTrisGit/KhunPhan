@@ -46,7 +46,6 @@ emptyBoard = [[False, False, False, False, False, False],
 # Starting and winning positions
 startPositionA = [[14,15,18,19], [1,4,13,16], [10], [2]]
 winningPositionA = [[13,16,17,20],[1,2,3,4],[10],[14]]
-shortestSolutionA = 113
 
 startPositionB = [[4,8,11,12],[1,2,3],[13,17],[15]]
 winningPositionB = [[1,5,9,10],[2,3,4],[15,19],[13]]
@@ -177,6 +176,9 @@ queue = []
 # Which version are we playing?
 curVariant = 0
 
+# To which depth should we search?
+expMaxDepth = 200
+
 # Get positions of the currently played variant (variant 0 to 8, which False (start) or True (win))
 def curVariantPos(variant, which) :
     match variant :
@@ -232,7 +234,7 @@ def mirrorState(state) :
 # Check whether a new position should be visited
 def shouldVisit(pos, howDid) :
     l = len(howDid)
-    if l > 200 or solutions != [] and l > len(min(solutions, key=len)) :
+    if l > expMaxDepth or solutions != [] and l > len(min(solutions, key=len)) :
         return False
     else :
         return True
@@ -249,9 +251,9 @@ def solved(position) :
 # Create a node in the search tree
 def node(state) :
     # Visualize progress
-    global shortestSolutionA
+    global expMaxDepth
     if len(queue) > 1 and ((len(state.getHowDid()))%7) == 0 and ((len(state.getHowDid())) < (len(queue[1].getHowDid()))) :
-        print(str(int(round(((len(state.getHowDid()))/shortestSolutionA)*100, 0))) + "% ", end='', flush=True)
+        print(str(int(round(((len(state.getHowDid()))/expMaxDepth)*100, 0))) + "% ", end='', flush=True)
     # Remove state from the queue
     queue.remove(state)
     curPos = state.getPosition()
@@ -276,16 +278,18 @@ def node(state) :
 
 # Add starting position to the queue and handle the queue
 # Print how many solutions you found to standard out
-def run(variant) :
+def run(variant, maxDepth) :
     print("Calculating... ", end='')
     global curVariant
     curVariant = variant
+    global expMaxDepth
+    expMaxDepth = maxDepth
     startPos = curVariantPos(variant, False)
     queue.append(State(startPos, []))
     while len(queue) > 0 :
         node(queue[0])
 
-run(0)
+run(0, 114)
 
 
 # ----------------------------------------------------------------------------------------------
