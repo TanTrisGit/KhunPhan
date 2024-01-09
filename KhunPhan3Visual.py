@@ -50,5 +50,5 @@ def drawSolution(solution, index) :
                 draw.rectangle((upLeftX, upLeftY, lowRightX, lowRightY), fill=color, outline=(0, 0, 0))
                 # draw.ellipse((upLeftX + padding, upLeftY + padding, lowRightX - padding, lowRightY - padding), fill=color, outline=(0, 0, 0))
 
-        path = "images/solution" + str(index) + "_" + str(len(solution)) + ".jpg"
+        path = "solution" + str(index) + "_" + str(len(solution)) + ".jpg"
         im.save(path, quality=95)
